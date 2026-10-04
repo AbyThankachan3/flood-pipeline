@@ -1,0 +1,18 @@
+# Flood pipeline dependencies.
+# Python 3.10 or newer recommended.
+#
+# Lighter than the wind pipeline: the Aqueduct source data is GeoTIFF, not
+# NetCDF, so there is no xarray/dask/netCDF4 here.
+
+requests
+beautifulsoup4
+lxml
+
+numpy
+pandas
+tqdm
+
+geopandas
+shapely
+rasterio
+rio-cogeo

@@ -1,0 +1,33 @@
+# ---- Data: never commit rasters ------------------------------------------
+# A full raw archive is ~40 GB and outputs are global-extent GeoTIFFs.
+raw_tif/
+FloodData/
+WindData/
+results/
+*.tif
+*.tiff
+*.part
+manifests/
+
+# Boundary shapefiles are downloaded by step 00, not stored here.
+GIS Files/
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+
+# ---- Python ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# ---- FloodRiverine/ is its own git repository -----------------------------
+# It has its own remote (AbyThankachan3/riverineflooding) and holds the three
+# superseded legacy scripts. Tracking it here would add it as an empty gitlink,
+# so it is excluded. Its contents are unchanged on disk and still versioned in
+# that repo. FloodCoastal/ is NOT a repo, so its legacy scripts ARE included
+# here for reference.
+FloodRiverine/
