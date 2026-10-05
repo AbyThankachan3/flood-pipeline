@@ -21,9 +21,10 @@ for the *separate* CSV tools (`../newGPUParser.py`, `../tiffaggregator/*_gpu.py`
 — this pipeline needs none of it, and `requirements.txt` has no GPU dependency.
 Bottlenecks are RAM and disk: tune `FLOOD_PROCESS_WORKERS` / `FLOOD_TILE_SIZE`.
 
-There is no linter config and no build step. `tests/` holds two plain scripts
-(no pytest) covering the filename grammar and the ensemble/clipping invariants;
-they generate their own rasters, so they need no Aqueduct data and no network.
+There is no linter config and no build step. `tests/` holds five plain scripts
+(no pytest) covering the filename grammar, ensemble maths, mask cache, trim
+invariants and download retries; they generate their own rasters or stub the
+network, so they need no Aqueduct data and no connection.
 
 ## Commands
 
@@ -40,7 +41,7 @@ FLOOD_COUNTRIES=all FLOOD_SKIP_DOWNLOAD=1 python run_all.py --yes
 ```
 
 ```bash
-python tests/test_naming.py && python tests/test_ensemble.py && python tests/test_mask_cache.py && python tests/test_trim.py
+for t in tests/test_*.py; do python "$t" || break; done
 ```
 
 Individual steps are plain scripts (`python 02-riverine-ensemble.py`) and read
@@ -161,6 +162,12 @@ cheap, and it's why `RAW_DIR` and `OUTPUT_ROOT` are separate trees.
   `masked=True` and the mask is combined with the country mask before anything
   is computed, so `-9999` must never reach a statistic. There's a regression
   check for this.
+- **The source host sheds TLS connections under concurrency.** A 16-worker run
+  dropped 9 of 594 files with `SSL: UNEXPECTED_EOF_WHILE_READING`. `download_one`
+  retries with exponential backoff (`FLOOD_DOWNLOAD_RETRIES`, default 4) and
+  treats a truncated read as the same transient fault; 403/404 are permanent and
+  are never retried. Don't raise `FLOOD_DOWNLOAD_WORKERS` without keeping the
+  retries.
 - **Idempotency everywhere.** Every step skips work already done, and writes
   through a `.part` file it renames on success. These runs are long; don't break
   resumability.

@@ -323,7 +323,14 @@ frontend.
 - **Large download.** The Aqueduct rasters are global; clipping happens
   afterwards. Expect tens of GB — when the source is reachable again.
 - **Resumable.** Completed files are skipped; an interrupted download leaves a
-  `.part` that is restarted cleanly rather than mistaken for complete. Steps
+  `.part` that is restarted cleanly rather than mistaken for complete. Re-running
+  the same command fetches only what is missing.
+- **Transient TLS failures are retried.** The host sheds connections under
+  concurrency — a 16-worker run dropped 9 of 594 files with
+  `SSL: UNEXPECTED_EOF_WHILE_READING`. Each file now gets
+  `FLOOD_DOWNLOAD_RETRIES` attempts (default 4) with exponential backoff, and a
+  short read counts as a failure rather than being kept. 403/404 are permanent
+  and not retried. Steps
   02–04 skip groups whose output already exists.
 - **Auto-cleanup (step 05).** After a successful run the pre-COG GeoTIFFs are
   deleted, keeping the raw downloads, the shapefile and the final COGs. A

@@ -228,7 +228,15 @@ else:
 # ADVANCED (safe to leave as-is)
 # ============================================================
 
+# Step 01 download threads. The host sheds TLS connections under concurrency:
+# a 16-worker run dropped 9 of 594 files with
+# "SSL: UNEXPECTED_EOF_WHILE_READING". Retries now absorb that, so 16 is usable
+# and roughly 3x faster, but 6-8 is gentler if you would rather not see errors.
 DOWNLOAD_WORKERS = _env_int("FLOOD_DOWNLOAD_WORKERS", 6)
+
+# Attempts per file before giving up, with exponential backoff between them.
+# 403/404 are treated as permanent and never retried.
+DOWNLOAD_RETRIES = _env_int("FLOOD_DOWNLOAD_RETRIES", 4)
 
 # Step 02/03 CPU workers. Each worker holds one boundary mask covering the FULL
 # raster grid -- one bool per pixel, so ~0.9 GB for the 43200x21600 Aqueduct

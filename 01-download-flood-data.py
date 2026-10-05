@@ -21,6 +21,7 @@ Resume-safe: a completed file is skipped, and an interrupted one leaves a
 
 import os
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin, urlparse
 
@@ -198,6 +199,18 @@ def select_files(urls):
 # =========================================================
 
 def download_one(url, hazard, filename, timeout=300):
+    """
+    Fetch one raster, with retries.
+
+    The host drops TLS connections under concurrency -- a run with 16 workers
+    produced 9 `SSL: UNEXPECTED_EOF_WHILE_READING` failures out of 594 files.
+    Those are transient and succeed on a second attempt, so they are retried
+    here with exponential backoff instead of being left for the operator to
+    re-run by hand.
+
+    A truncated read is retried too: it means the stream ended early without
+    raising, which is the same transient fault showing up differently.
+    """
     dest_dir = os.path.join(config.RAW_DIR, RAW_SUBDIR[hazard])
     os.makedirs(dest_dir, exist_ok=True)
     dest = os.path.join(dest_dir, filename)
@@ -206,32 +219,46 @@ def download_one(url, hazard, filename, timeout=300):
     if os.path.exists(dest) and os.path.getsize(dest) > 0:
         return ("skipped", filename, dest)
 
-    try:
-        with requests.get(url, stream=True, timeout=timeout,
-                          headers={"User-Agent": "Mozilla/5.0"}) as r:
-            if r.status_code != 200:
-                return (f"http_{r.status_code}", filename, dest)
-            expected = int(r.headers.get("content-length", 0))
-            written = 0
-            with open(part, "wb") as f:
-                for chunk in r.iter_content(CHUNK):
-                    if chunk:
-                        f.write(chunk)
-                        written += len(chunk)
+    last = "unknown"
+    for attempt in range(1, config.DOWNLOAD_RETRIES + 1):
+        try:
+            with requests.get(url, stream=True, timeout=timeout,
+                              headers={"User-Agent": "Mozilla/5.0"}) as r:
+                # A missing file is permanent -- do not burn retries on it.
+                if r.status_code in (403, 404):
+                    return (f"http_{r.status_code}", filename, dest)
+                if r.status_code != 200:
+                    last = f"http_{r.status_code}"
+                    raise IOError(last)
 
-        # A connection that drops mid-stream does not always raise, so a short
-        # read would otherwise be renamed into place and look complete. On a
-        # long unattended run that is how silent corruption gets in.
-        if expected and written != expected:
-            os.remove(part)
-            return (f"truncated_{written}_of_{expected}", filename, dest)
+                expected = int(r.headers.get("content-length", 0))
+                written = 0
+                with open(part, "wb") as f:
+                    for chunk in r.iter_content(CHUNK):
+                        if chunk:
+                            f.write(chunk)
+                            written += len(chunk)
 
-        os.replace(part, dest)
-        return ("downloaded", filename, dest)
-    except Exception as e:
-        if os.path.exists(part):
-            os.remove(part)
-        return (f"error:{e}", filename, dest)
+            # A connection that drops mid-stream does not always raise, so a
+            # short read would otherwise be renamed into place and look
+            # complete. On a long unattended run that is how silent corruption
+            # gets in.
+            if expected and written != expected:
+                last = f"truncated_{written}_of_{expected}"
+                raise IOError(last)
+
+            os.replace(part, dest)
+            return ("downloaded", filename, dest)
+
+        except Exception as e:
+            last = str(e) if not str(e).startswith(("http_", "truncated_")) else str(e)
+            if os.path.exists(part):
+                os.remove(part)
+            if attempt < config.DOWNLOAD_RETRIES:
+                # 2s, 4s, 8s, ... with a cap; plenty for a server shedding load.
+                time.sleep(min(2 ** attempt, 30))
+
+    return (f"error_after_{config.DOWNLOAD_RETRIES}_tries:{last}", filename, dest)
 
 
 # =========================================================
