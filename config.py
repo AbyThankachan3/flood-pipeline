@@ -71,7 +71,7 @@ def _env_bool(name, default):
 # 1) Which country to process. FOR MOST RUNS THIS IS THE ONLY THING YOU SET.
 #    The boundary shapefile is downloaded automatically (step 00) and its path
 #    is derived from this name (see SHAPEFILE below) -- you do not type a path.
-COUNTRY = _env("FLOOD_COUNTRY", "USA")
+COUNTRY = _env("FLOOD_COUNTRY", "Canada")
 
 # 1b) Process SEVERAL countries in one run.
 #     FLOOD_COUNTRIES="Canada,UK"  -> that list
@@ -156,11 +156,27 @@ COASTAL_PERCENTILES = _env_list_str(
 # looked up here, not typed by hand. The download source for each country lives
 # in download_shapefile.py; the resulting filename lives here.
 SHAPEFILE_BY_COUNTRY = {
-    "USA":       "GIS Files/State/cb_2018_us_state_500k.shp",
-    "Canada":    "Canada/lpr_000b21a_e.shp",
-    "EU":        "EU/NUTS_RG_01M_2021_4326_LEVL_0.shp",
-    "UK":        "UK/CTRY_DEC_2024_UK_BUC.shp",
-    "Australia": "Australia/STE_2021_AUST_GDA2020.shp",
+    # Filenames below were read out of the actual downloaded archives, not
+    # guessed, and each was opened with geopandas to confirm it loads.
+    "Canada":       "Canada/lpr_000b21a_e.shp",
+    "EU":           "EU/NUTS_RG_01M_2021_4326_LEVL_0.shp",
+    "UK":           "UK/CTRY_DEC_2024_UK_BUC.shp",
+    "Australia":    "Australia/STE_2021_AUST_GDA2020.shp",
+
+    # GCC (all six) -- COD-AB admin0 layers from HDX.
+    "UAE":          "UAE/are_admin0.shp",
+    "Qatar":        "Qatar/qat_admin0.shp",
+    "Saudi Arabia": "Saudi Arabia/sau_admin0.shp",
+    "Oman":         "Oman/omn_admin0.shp",
+    "Kuwait":       "Kuwait/kwt_admin0.shp",
+    "Bahrain":      "Bahrain/Boundaries_Bahrain_0_GAUL.shp",
+
+    # Singapore is GeoJSON, not a shapefile -- geopandas reads it either way.
+    "Singapore":    "Singapore/sg_region_boundary.geojson",
+
+    # Already produced by the legacy scripts; left registered so it can be
+    # re-run, but not in the default country list.
+    "USA":          "GIS Files/State/cb_2018_us_state_500k.shp",
 }
 
 # The list of countries a single `run_all.py` will process.

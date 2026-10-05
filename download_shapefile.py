@@ -79,9 +79,29 @@ SOURCES = {
         "source": "ABS, States/Territories 2021 (GDA2020)",
     },
 
-    # ---- Middle East: government-sourced via UN OCHA COD-AB (untested) ----
+    # ---- GCC: open COD-AB sources on HDX (verified 2026-10-05) ----
+    # Every one of these was downloaded and its admin0 layer opened with
+    # geopandas; the areas came out within ~15% of official figures. The four
+    # that were previously marked "gated" (Saudi, Bahrain, Oman, Kuwait) do have
+    # open COD-AB datasets -- the national portals need an account, HDX does not.
+    #
+    # Caveat on extent: UAE measured 70,927 km2 against ~83,600 official, and
+    # Saudi 1,909,077 against ~2,150,000. COD-AB admin0 omits some disputed and
+    # island areas. Fine for flood masking; worth knowing if you need exact
+    # national extent.
     "UAE": {"strategy": "zip", "url": "https://data.humdata.org/dataset/23d41c1f-41ef-4957-a47e-b8c08c984d83/resource/8e3dce55-76e9-4ea1-a4d9-93eccdc4b66d/download/are_admin_boundaries.shp.zip", "source": "UAE Federal Competitiveness and Statistics Centre (via COD-AB)"},
-    "Qatar": {"strategy": "zip", "url": "https://data.humdata.org/dataset/6a84f3b8-41cd-4769-a61f-6dbd5f61bd05/resource/2345dd03-d14f-4038-9e96-8c235056d25f/download/qat_adm_psa_20240627_ab_shp.zip", "source": "Qatar Planning and Statistics Authority (via COD-AB)"},
+    "Qatar": {"strategy": "zip", "url": "https://data.humdata.org/dataset/6a84f3b8-41cd-4769-a61f-6dbd5f61bd05/resource/5e996f7c-42b5-4335-871c-3a78ffb158f7/download/qat_admin_boundaries.shp.zip", "source": "Qatar Planning and Statistics Authority (via COD-AB)"},
+    "Saudi Arabia": {"strategy": "zip", "url": "https://data.humdata.org/dataset/41ce9023-1d21-4549-a485-94316200aba0/resource/cbe8dbc9-4d5d-462f-9333-bf3cc163b3cc/download/sau_admin_boundaries.shp.zip", "source": "Saudi Arabia GASTAT (via COD-AB)"},
+    "Oman": {"strategy": "zip", "url": "https://data.humdata.org/dataset/da87f54e-64bd-4cf4-bd31-3fc520f94609/resource/f08b9646-6bb8-4859-a0f9-295d58c42503/download/omn_admin_boundaries.shp.zip", "source": "Oman NCSI (via COD-AB)"},
+    "Kuwait": {"strategy": "zip", "url": "https://data.humdata.org/dataset/a28f399f-482c-4e62-8dbf-d2c12381674a/resource/9c9ccd7e-7ffb-4005-a301-db7d39127b61/download/kwt_admin_boundaries.shp.zip", "source": "Kuwait CSB (via COD-AB)"},
+    # Bahrain's COD-AB entry is GAUL-derived (FAO), NOT national government, and
+    # measured 673 km2 against ~780 official.
+    "Bahrain": {"strategy": "zip", "url": "https://data.humdata.org/dataset/23a85209-66d3-4d10-a69f-7baf6d2cc8c1/resource/6b11ac4e-2ef7-4ec4-a1ea-006c7c85ded0/download/boundaries_bahrain_0_gaul.zip", "source": "FAO GAUL via HDX -- NOT national government"},
+
+    # ---- Singapore: data.gov.sg API, returns GeoJSON not a shapefile ----
+    "Singapore": {"strategy": "datagovsg", "dataset_id": "d_bf4d24df9129d5a8ff8cf82e20959ee0", "source": "Singapore URA Master Plan 2019 Region Boundary (data.gov.sg)"},
+
+    # ---- Middle East: government-sourced via UN OCHA COD-AB (untested) ----
     "Egypt": {"strategy": "zip", "url": "https://data.humdata.org/dataset/b90d81ba-7c7a-4283-9899-827480d80a79/resource/6115d7e5-4ba4-451d-988e-f791f4716e7a/download/egy_admin_boundaries.shp.zip", "source": "Egypt CAPMAS (via COD-AB)"},
     "Iraq": {"strategy": "zip", "url": "https://data.humdata.org/dataset/488bb3cd-3ce9-49d3-862a-3ce7975c63e1/resource/1d1ed1f3-a295-47b6-800d-356dc1036731/download/irq_admin_boundaries.shp.zip", "source": "Iraq Central Statistics Office (via COD-AB)"},
     "Yemen": {"strategy": "zip", "url": "https://data.humdata.org/dataset/6b2656e2-b915-4671-bfed-468d5edcd80a/resource/eb58b807-bea0-450f-a654-0fa49054b4e0/download/yem_admin_boundaries.shp.zip", "source": "Yemen Central Statistical Organization (via COD-AB)"},
@@ -97,10 +117,6 @@ SOURCES = {
     "Cyprus": {"strategy": "manual", "portal": "Use the EU dataset — Cyprus is an EU member included in Eurostat NUTS 2021.", "source": "Eurostat NUTS 2021"},
 
     # ---- Registration-gated: cannot be automated ----
-    "Saudi Arabia": {"strategy": "gated", "portal": "https://www.geosa.gov.sa/en/Pages/default.aspx", "source": "GEOSA National Geospatial Platform (account required)"},
-    "Bahrain": {"strategy": "gated", "portal": "https://data.gov.bh/", "source": "Bahrain Open Data Portal (account required)"},
-    "Oman": {"strategy": "gated", "portal": "https://ea.gov.om/en/open-data/open-data-sets/gis-data/", "source": "Oman Environment Authority (account required)"},
-    "Kuwait": {"strategy": "gated", "portal": "https://e.gov.kw/sites/kgoenglish/Pages/OtherTopics/OpenData.aspx", "source": "Kuwait Government Online (account required)"},
 
     # ---- No open source located ----
     "Israel": {"strategy": "manual", "portal": "https://www.gov.il/en/departments/survey_of_israel", "source": "Survey of Israel — publishes DXF/ARC-INFO, no open shapefile located"},
@@ -146,7 +162,7 @@ def find_shapefiles(directory):
     out = []
     for root, _dirs, files in os.walk(directory):
         for f in files:
-            if f.lower().endswith(".shp"):
+            if f.lower().endswith((".shp", ".geojson")):
                 out.append(os.path.join(root, f))
     return out
 
@@ -207,6 +223,25 @@ def do_arcgis(entry, dest_dir):
     return True
 
 
+def do_datagovsg(entry, dest_dir):
+    """
+    data.gov.sg: resolve the dataset's temporary download URL, then save the
+    GeoJSON straight to the target path. geopandas reads GeoJSON fine, so no
+    shapefile conversion is needed -- note config.SHAPEFILE for Singapore ends
+    in .geojson, not .shp.
+    """
+    ds = entry["dataset_id"]
+    api = f"https://api-open.data.gov.sg/v1/public/api/datasets/{ds}/poll-download"
+    print("Resolving data.gov.sg download url...")
+    try:
+        url = requests.get(api, timeout=60).json()["data"]["url"]
+    except Exception as e:
+        print(f"  [error] could not resolve data.gov.sg download: {e}")
+        return False
+    print(f"Downloading: {url[:80]}...")
+    return download(url, config.SHAPEFILE)
+
+
 def print_manual(country, entry, dest_dir):
     print("\n" + "-" * 60)
     print(f"'{country}' cannot be downloaded automatically.")
@@ -262,6 +297,8 @@ def main():
         ok = do_nested_zip(entry, dest_dir)
     elif strategy == "arcgis":
         ok = do_arcgis(entry, dest_dir)
+    elif strategy == "datagovsg":
+        ok = do_datagovsg(entry, dest_dir)
     else:
         print(f"[ERROR] Unknown strategy '{strategy}'.")
         sys.exit(1)
