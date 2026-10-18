@@ -49,8 +49,23 @@ def variant_order():
 
 
 def band_label(subsidence, projection):
-    """('nosub', '0_perc_05') -> 'depth_nosub_p05'"""
-    pct = projection.replace("0_perc_", "p")
+    """
+    ('nosub', '0_perc_05') -> 'depth_nosub_p05'
+    ('nosub', '0')         -> 'depth_nosub_p95'
+
+    Looked up, never derived by string-stripping: the bare "0" token is
+    Aqueduct's 95th percentile, and stripping "0_perc_" would leave it as "0".
+    An unknown token raises rather than silently producing a junk band name,
+    because band order and naming are what downstream consumers trust.
+    """
+    try:
+        pct = config.COASTAL_PERCENTILE_LABELS[projection]
+    except KeyError:
+        raise ValueError(
+            f"No band label for coastal projection {projection!r}. "
+            f"Add it to config.COASTAL_PERCENTILE_LABELS "
+            f"(known: {sorted(config.COASTAL_PERCENTILE_LABELS)})."
+        ) from None
     return f"depth_{subsidence}_{pct}"
 
 

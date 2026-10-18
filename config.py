@@ -146,6 +146,17 @@ COASTAL_SUBSIDENCE = _env_list_str("FLOOD_COASTAL_SUBSIDENCE", ["nosub", "wtsub"
 COASTAL_PERCENTILES = _env_list_str(
     "FLOOD_COASTAL_PERCENTILES", ["0_perc_05", "0_perc_50"])
 
+# Aqueduct's projection token -> the label used in band names. The "0" token is
+# the trap: it looks like a null/default placeholder but the WRI data dictionary
+# defines it as the 95th percentile. Deriving the label by string-stripping
+# "0_perc_" (as an earlier version did) turns it into "0", so a six-band output
+# would have shipped a band called depth_nosub_0.
+COASTAL_PERCENTILE_LABELS = {
+    "0_perc_05": "p05",
+    "0_perc_50": "p50",
+    "0": "p95",
+}
+
 
 # ============================================================
 # BOUNDARY SHAPEFILE  (normally auto-derived -- you don't set this)
