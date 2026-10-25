@@ -279,20 +279,61 @@ Bold = default. Each needs one line of helper text; neither term is
 self-explanatory to a non-specialist. Show the 95th option only when the
 six-band layers are deployed, or disable it with a tooltip.
 
-### 5.2 Replace the 2×2 stat grid
+### 5.2 Keep the card structure, change one tile
 
-Remove the four tiles (`Median depth`, `Mean depth`, `Max depth`,
-`Std. deviation`). **There must be no standard-deviation tile on the coastal
-panel.** Replace with three stacked zones:
+The coastal card keeps the **same shape as the riverine card already in
+production** — header, pill top-right, 2×2 tile grid. Only the contents change.
 
-1. **Headline depth** — one large value for the selected case, with full
-   context beneath: `100-year return · SSP2-4.5 · 2030 / Subsidence included ·
-   50th percentile sea level rise`.
-2. **Sea level rise uncertainty** — a range bar from `depthP05` to `depthP95`
-   with a marker at the selected percentile. Hide this row until `depthP95`
-   is non-null.
-3. **Across the <radius>** — `meanDepth`, `maxDepth`, `floodedFraction`, under
-   a header naming the radius.
+| Slot | Riverine (as built) | Coastal |
+|---|---|---|
+| Pill | `5 models` | `50th pct` — the selected percentile |
+| Top left | Median depth | Median depth |
+| Top right | Mean depth | Mean depth |
+| Bottom left | Max depth | Max depth |
+| Bottom right | Std. deviation | **Sea level rise range** |
+
+Three tiles are identical. Only the bottom-right slot differs, and in both
+cards that slot holds the hazard's own uncertainty measure: riverine has
+disagreement across models, coastal has the 5th–95th sea-level-rise range
+(`depthP05`–`depthP95`). Same position, same role, each correct for its data.
+
+**There must be no standard-deviation tile on the coastal panel.** Coastal has
+no model ensemble, so there is nothing for a standard deviation to describe.
+
+Coastal's four values are all **spatial** statistics over the selected band
+within the radius. Riverine's are a mix of spatial and across-model. They are
+not comparable, so do not add a header implying they are.
+
+> **The range tile depends on the six-band build.** With the current four-band
+> output there is no 95th percentile, so that slot could only show 5th–50th —
+> the lower half of a distribution, which understates rather than describes.
+> Until the six-band layers ship, put **Flooded area %** in that slot instead.
+> See §7.
+
+**No footer row.** An earlier draft repeated the selected case under the grid;
+it is already stated by the pill and by the two selectors directly above, so it
+was removed. Riverine's footer earns its place because `5 of 5 models` is data
+completeness at that pixel, read from `model_count` — coastal has no equivalent.
+
+A rendered mockup is at [`design/coastal-panel-proposed.html`](design/coastal-panel-proposed.html)
+(open it in a browser; no build step).
+
+### 5.2.1 Still open: the flood-defences caveat
+
+Aqueduct simulates its hazard layers **with no flood protection at all** —
+defences are handled separately in WRI's risk calculation. So for New Orleans
+these depths are what happens with the post-Katrina levee system absent. The
+same is true of riverine. Nothing in the UI currently says so.
+
+It is a property of the data source, not of either card, so it belongs once at
+panel level rather than inside both. Candidates, in preference order:
+
+1. A muted line below the card, shared by both hazards:
+   `(i) Undefended — flood defences are not modelled in these layers`
+2. The existing `What is this?` link beside SUMMARY ANALYTICS, for the longer
+   explanation.
+
+Decision pending.
 
 ### 5.3 Riverine: surface model agreement
 
