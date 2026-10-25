@@ -37,21 +37,21 @@ def load(percentiles):
     return config, mod
 
 
-# ---------------------------------------------------------------- 4 bands
+# ------------------------------------------------- 4 bands (legacy parity)
 cfg, coastal = load("0_perc_05,0_perc_50")
 order = coastal.variant_order()
 labels = [coastal.band_label(s, p) for s, p in order]
-print(f"\n4-band default: {labels}")
-check("default is 4 bands", len(order) == 4)
-check("default labels correct",
+print(f"\n4-band (legacy parity): {labels}")
+check("4 bands when only p05/p50 are configured", len(order) == 4)
+check("4-band labels correct",
       labels == ["depth_nosub_p05", "depth_nosub_p50",
                  "depth_wtsub_p05", "depth_wtsub_p50"])
 
-# ---------------------------------------------------------------- 6 bands
+# ------------------------------------------------- 6 bands (the default)
 cfg, coastal = load("0_perc_05,0_perc_50,0")
 order = coastal.variant_order()
 labels = [coastal.band_label(s, p) for s, p in order]
-print(f"6-band:         {labels}")
+print(f"6-band (default):       {labels}")
 check("6 bands when the 95th is enabled", len(order) == 6)
 check("95th percentile labelled p95, not 0",
       labels == ["depth_nosub_p05", "depth_nosub_p50", "depth_nosub_p95",

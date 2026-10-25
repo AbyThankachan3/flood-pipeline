@@ -309,8 +309,15 @@ quantity, so they are stacked rather than averaged:
 |---|---|---|
 | 1 | depth_nosub_p05 | m |
 | 2 | depth_nosub_p50 | m |
-| 3 | depth_wtsub_p05 | m |
-| 4 | depth_wtsub_p50 | m |
+| 3 | depth_nosub_p95 | m |
+| 4 | depth_wtsub_p05 | m |
+| 5 | depth_wtsub_p50 | m |
+| 6 | depth_wtsub_p95 | m |
+
+`p95` is the bare `0` token in Aqueduct's filenames — its own default and the
+worst case. The legacy scripts downloaded it and then discarded it. For a
+4-band output matching those scripts, set
+`FLOOD_COASTAL_PERCENTILES=0_perc_05,0_perc_50`.
 
 Band descriptions, unit tags and dataset tags (hazard, scenario, year, return
 period, contributing models) survive the COG conversion and are readable by the

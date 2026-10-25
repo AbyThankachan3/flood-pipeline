@@ -113,6 +113,18 @@ of the four (or six) cases it describes.
 
 ## 3. `com-hartreeresearch/bluebird`
 
+### 3.0 Band layout to code against
+
+Six bands, pipeline default as of 2026-10-25:
+
+```
+1 depth_nosub_p05   2 depth_nosub_p50   3 depth_nosub_p95
+4 depth_wtsub_p05   5 depth_wtsub_p50   6 depth_wtsub_p95
+```
+
+Subsidence is the outer loop, percentile the inner. Select by NAME, never by
+position — a four-band legacy build has p95 absent and the indices shift.
+
 ### 3.1 `services/CoastalFloodService.java` — the fix
 
 Delete the four band constants. Select the band by **name**, not position:
@@ -304,11 +316,12 @@ Coastal's four values are all **spatial** statistics over the selected band
 within the radius. Riverine's are a mix of spatial and across-model. They are
 not comparable, so do not add a header implying they are.
 
-> **The range tile depends on the six-band build.** With the current four-band
-> output there is no 95th percentile, so that slot could only show 5th–50th —
-> the lower half of a distribution, which understates rather than describes.
-> Until the six-band layers ship, put **Flooded area %** in that slot instead.
-> See §7.
+> **Six bands is now the pipeline default**, so `depthP95` is populated and the
+> range tile works. A four-band build is still reachable with
+> `FLOOD_COASTAL_PERCENTILES=0_perc_05,0_perc_50` for legacy parity — in that
+> case there is no 95th percentile and the slot must show **Flooded area %**
+> instead, because 5th–50th is the lower half of a distribution and would
+> understate rather than describe.
 
 **No footer row.** An earlier draft repeated the selected case under the grid;
 it is already stated by the pill and by the two selectors directly above, so it
@@ -365,8 +378,9 @@ storage layer does not care either way.
 ## 7. Rollout order
 
 1. **contracts** — new fields, publish the version
-2. **pipeline** — re-run coastal so COGs carry band descriptions (and 6 bands
-   if the 95th is adopted); upload to the existing keys
+2. **pipeline** — run all 12 countries (USA included) for both hazards. Coastal
+   is six bands by default now, and the COGs carry band descriptions; upload to
+   the existing keys
 3. **bluebird** — resolver, `CoastalFloodService`, controller params, report
    service; enable the band-description assertion
 4. **frontend** — selectors and card

@@ -136,15 +136,18 @@ COASTAL_SUBSIDENCE = _env_list_str("FLOOD_COASTAL_SUBSIDENCE", ["nosub", "wtsub"
 #     "0_perc_05"  ->  5th percentile
 #     "0_perc_50"  -> 50th percentile
 #
-# Default is the two the legacy innuncoast_stack_tiffs.py consumed, which keeps
-# the 4-band output unchanged. Note the legacy DOWNLOADER fetched all three and
-# then ignored "0", so the 95th percentile never reached any output.
+# Default is all three, giving a SIX-band coastal output:
+#     nosub p05/p50/p95, then wtsub p05/p50/p95
 #
-# To pull everything (recommended for a raw archive -- re-downloading later is
-# the expensive part):
-#     FLOOD_COASTAL_PERCENTILES=0,0_perc_05,0_perc_50
+# The legacy innuncoast_stack_tiffs.py consumed only p05 and p50, so its output
+# was 4 bands and the 95th percentile -- Aqueduct's own default, and the worst
+# case -- never reached a map. The legacy downloader did fetch it and then
+# discarded it.
+#
+# For a 4-band output matching the legacy scripts exactly:
+#     FLOOD_COASTAL_PERCENTILES=0_perc_05,0_perc_50
 COASTAL_PERCENTILES = _env_list_str(
-    "FLOOD_COASTAL_PERCENTILES", ["0_perc_05", "0_perc_50"])
+    "FLOOD_COASTAL_PERCENTILES", ["0_perc_05", "0_perc_50", "0"])
 
 # Aqueduct's projection token -> the label used in band names. The "0" token is
 # the trap: it looks like a null/default placeholder but the WRI data dictionary
@@ -190,14 +193,29 @@ SHAPEFILE_BY_COUNTRY = {
     "USA":          "GIS Files/State/cb_2018_us_state_500k.shp",
 }
 
+# The countries a plain `run_all.py` processes. Spelled out here rather than
+# left as [COUNTRY], so a full run cannot silently become a one-country run
+# because FLOOD_COUNTRIES was forgotten on the command line.
+DEFAULT_COUNTRIES = [
+    "USA", "Canada", "EU", "UK", "Australia",
+    "Saudi Arabia", "UAE", "Qatar", "Kuwait", "Bahrain", "Oman",
+    "Singapore",
+]
+
 # The list of countries a single `run_all.py` will process.
+#   FLOOD_COUNTRIES="all"      -> every registered country
+#   FLOOD_COUNTRIES="UK,Oman"  -> that list
+#   FLOOD_COUNTRY="UK" alone   -> just that one
+#   neither                    -> DEFAULT_COUNTRIES
 if _countries_env and _countries_env.strip().lower() == "all":
     COUNTRIES = list(SHAPEFILE_BY_COUNTRY.keys())
 elif _countries_env:
     COUNTRIES = [c.strip() for c in _countries_env.replace(";", ",").split(",")
                  if c.strip()]
-else:
+elif os.environ.get("FLOOD_COUNTRY"):
     COUNTRIES = [COUNTRY]
+else:
+    COUNTRIES = list(DEFAULT_COUNTRIES)
 
 # Trim the entirely-blank border off each output (FLOOD_TRIM=1).
 #

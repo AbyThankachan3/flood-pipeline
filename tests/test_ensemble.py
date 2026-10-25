@@ -231,9 +231,14 @@ except ValueError:
 # =====================================================================
 # 6) coastal band labels / ordering
 # =====================================================================
-check("coastal variant order",
-      coastal.variant_order() == [("nosub", "0_perc_05"), ("nosub", "0_perc_50"),
-                                  ("wtsub", "0_perc_05"), ("wtsub", "0_perc_50")])
+# Derived from config rather than frozen, so changing the configured
+# percentile set does not fail this. test_coastal_bands.py pins the exact
+# 4- and 6-band label lists.
+import config as _cfg
+_expected = [(s, p) for s in _cfg.COASTAL_SUBSIDENCE
+             for p in _cfg.COASTAL_PERCENTILES]
+check(f"coastal variant order ({len(_expected)} variants, subsidence outer)",
+      coastal.variant_order() == _expected)
 check("coastal band label", coastal.band_label("wtsub", "0_perc_50") == "depth_wtsub_p50")
 check("coastal identity passthrough",
       np.allclose(coastal.identity(stack), stack, equal_nan=True))
