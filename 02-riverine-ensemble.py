@@ -106,7 +106,7 @@ def process_one(key, paths, results_dir):
     out_path = os.path.join(results_dir, out_name)
 
     try:
-        if os.path.exists(out_path):
+        if raster_utils.already_built(results_dir, out_name):
             return {"status": "skipped", "name": out_name, "models": len(paths)}
 
         note = ""

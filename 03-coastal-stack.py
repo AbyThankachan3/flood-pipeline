@@ -106,7 +106,7 @@ def process_one(key, variants, results_dir):
     order = variant_order()
 
     try:
-        if os.path.exists(out_path):
+        if raster_utils.already_built(results_dir, out_name):
             return {"status": "skipped", "name": out_name}
 
         missing = [f"{s}/{p}" for s, p in order if (s, p) not in variants]

@@ -37,6 +37,19 @@ import geopandas as gpd
 _MASK_CACHE = {}
 
 
+def already_built(results_dir, out_name):
+    """
+    True if this output already exists -- as the pre-COG GeoTIFF OR as its COG.
+
+    Step 05 deletes the pre-COG once its own COG exists, so a check against
+    results/<name>.tif alone goes stale the moment a country finishes. A re-run
+    would then rebuild every completed country from scratch: hours of work to
+    recreate files that are sitting right there in results/cog/.
+    """
+    return (os.path.exists(os.path.join(results_dir, out_name))
+            or os.path.exists(os.path.join(results_dir, "cog", out_name)))
+
+
 def load_boundary(shapefile, crs):
     """
     Read the boundary shapefile and reproject it to the raster CRS.
