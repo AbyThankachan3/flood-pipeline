@@ -16,7 +16,9 @@
 #  Country second, mirroring wind's wind/<iso>/<ssp>/<year>/cog.tiff, so the
 #  second segment is the ISO code for every hazard.
 #
-#  Files are COPIED; originals are untouched. Then upload <DEST> as-is, e.g.
+#  Files are HARDLINKED by default, so the staged tree costs no extra disk
+#  (set LINK=0 for real copies). Originals are untouched either way. Then
+#  upload <DEST> as-is, e.g.
 #     rclone copy <DEST> r2:<bucket>/flood
 #
 #  Usage:
@@ -31,6 +33,10 @@ SRC="${SRC:-/mnt/disks/winddata/flooddata/FloodData}"
 DEST="${DEST:-/mnt/disks/winddata/r2_upload/flood}"
 
 DRY_RUN=0
+# Hardlink instead of copying. The staged tree is a read-only handoff on the
+# same disk, so linking avoids duplicating tens of GB. LINK=0 forces real
+# copies (needed only if the uploader must survive the source being deleted).
+LINK="${LINK:-1}"
 for arg in "$@"; do
   case "$arg" in
     --dry-run|-n) DRY_RUN=1 ;;
@@ -71,7 +77,7 @@ fi
 
 echo "Source : $SRC"
 echo "Dest   : $DEST"
-echo "Mode   : $([ "$DRY_RUN" = 1 ] && echo 'DRY RUN (nothing copied)' || echo 'copy')"
+echo "Mode   : $([ "$DRY_RUN" = 1 ] && echo 'DRY RUN (nothing written)' || { [ "$LINK" = 1 ] && echo 'hardlink (no extra disk used)' || echo 'copy'; })"
 echo "Scenario naming: $([ "${KEEP_RCP:-0}" = 1 ] && echo 'rcp45/rcp85 (CMIP5, accurate)' || echo 'ssp245/ssp585 (matches wind + UI)')"
 echo
 
@@ -136,7 +142,15 @@ for dir in "$SRC"/*/; do
 
     if [ "$DRY_RUN" = 0 ]; then
       mkdir -p "$(dirname "$out")"
-      cp "$f" "$out"
+      # Hardlink by default: the staged tree is a read-only handoff on the same
+      # filesystem, so a real copy would double ~40 GB for no benefit. Removing
+      # either name later leaves the other intact. Falls back to a copy if the
+      # link fails (different filesystem, or a filesystem without hardlinks).
+      if [ "$LINK" = "1" ]; then
+        cp -l "$f" "$out" 2>/dev/null || cp "$f" "$out"
+      else
+        cp "$f" "$out"
+      fi
     fi
     n=$((n + 1))
     staged=$((staged + 1))
