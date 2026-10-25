@@ -206,9 +206,26 @@ private String buildWindPath(year, scenario) {
 ```
 
 So `buildFloodPath` needs the same treatment wind's key already had: an `<iso>`
-segment and the `.tiff` extension. **The exact flood key order is not yet
-settled** — flood has two dimensions wind does not (`type` and `returnPeriod`)
-— and the flood equivalent of `stage_for_r2.sh` has not been written.
+segment and the `.tiff` extension.
+
+**Settled (2026-10-25).** The flood key is:
+
+```
+flood/<iso>/<hazard>/<scenario>/<year>/<rp>/cog.tiff
+
+e.g. flood/gb/coastal/ssp245/2030/rp0100/cog.tiff
+```
+
+Country second, mirroring `wind/<iso>/<ssp>/<year>/cog.tiff`, so segment 2 is
+the ISO code for every hazard and nothing generic has to special-case. The
+return period keeps its `rp0100` form, and the scenario is staged as
+`ssp245`/`ssp585` to match wind and the frontend (`KEEP_RCP=1` stages the
+accurate CMIP5 `rcp45`/`rcp85` instead, in which case the backend must ask for
+those).
+
+`stage_for_r2.sh` in the repo root produces that tree. It only **copies into a
+local staging folder** — it does not upload; someone else syncs the tree to R2
+unchanged.
 
 This is also the strongest argument for the resolver below: with the layout in
 config or a table, a correction like the one wind already went through is a
