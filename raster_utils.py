@@ -23,6 +23,7 @@ group on the same grid.
 """
 
 import math
+import os
 
 import numpy as np
 import rasterio
