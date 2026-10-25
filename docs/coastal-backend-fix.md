@@ -223,8 +223,22 @@ Macedonia — 37 features, not 27) is **not** a collision. It is redundant
 storage: UK pixels appear in both layers with identical values, and an app that
 resolves a site to an ISO code will only ever read `gb` for a British site.
 
-Wind already shipped with this, using the same two shapefiles. Any decision
-here should apply to both hazards.
+Wind already shipped with this, using the same two shapefiles.
+
+**Decided (2026-10-25): leave as-is.** The layer stays labelled `EU` and keeps
+all 37 NUTS features. Filtering to the EU-27 was considered and rejected — of
+the ten non-member features, only the UK has its own layer, so filtering would
+delete coverage for Switzerland, Norway, Iceland, Liechtenstein, Türkiye,
+Serbia, Albania, Montenegro and North Macedonia, which nothing else in the set
+covers.
+
+Two consequences to be aware of rather than fix:
+
+- A site in the UK is inside two layers. The site → layer mapping must be an
+  explicit table preferring the national layer (`GB → gb`), never
+  point-in-polygon against layer boundaries, which is ambiguous there.
+- Anything that sums *across* layers rather than per site would double-count
+  UK exposure. Site-wise aggregation is unaffected.
 
 Introduce a seam:
 
