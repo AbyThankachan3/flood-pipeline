@@ -182,16 +182,49 @@ used.
 ### 3.4 `services/RegionalHazardProjectionService.java` — decouple the R2 layout
 
 Today the object key is computed in Java, so every R2 reorganisation is a code
-change and a release:
+change and a release.
+
+**The real R2 layout carries an ISO country code.** Wind's `stage_for_r2.sh`
+copies per-country output into:
+
+```
+wind/<iso>/<ssp>/<year>/cog.tiff        e.g. wind/gb/ssp245/2030/cog.tiff
+```
+
+That is the corrected, intended convention. Note `.tiff`, and note the `<iso>`
+segment: `EU → eu`, `UK → gb`, `USA → us`, and so on.
+
+The path builders on `develop` predate it and are **stale**:
 
 ```java
 private String buildFloodPath(type, year, scenario, returnPeriod) {
     return "flood/" + type + "/" + year + "/" + scenario + "/" + returnPeriod + "/cog.tif";
 }
 private String buildWindPath(year, scenario) {
-    return "wind/" + scenario + "/" + year + "/cog.tif";   // note: different order
+    return "wind/" + scenario + "/" + year + "/cog.tif";   // no <iso>, .tif not .tiff
 }
 ```
+
+So `buildFloodPath` needs the same treatment wind's key already had: an `<iso>`
+segment and the `.tiff` extension. **The exact flood key order is not yet
+settled** — flood has two dimensions wind does not (`type` and `returnPeriod`)
+— and the flood equivalent of `stage_for_r2.sh` has not been written.
+
+This is also the strongest argument for the resolver below: with the layout in
+config or a table, a correction like the one wind already went through is a
+config edit, not a code change in two languages.
+
+### Why the ISO segment matters for EU
+
+Because country is in the key, `eu/` and `gb/` are separate objects, so the
+fact that the NUTS 2021 level-0 boundary contains the UK (and Switzerland,
+Norway, Türkiye, Iceland, Liechtenstein, Serbia, Albania, Montenegro, North
+Macedonia — 37 features, not 27) is **not** a collision. It is redundant
+storage: UK pixels appear in both layers with identical values, and an app that
+resolves a site to an ISO code will only ever read `gb` for a British site.
+
+Wind already shipped with this, using the same two shapefiles. Any decision
+here should apply to both hazards.
 
 Introduce a seam:
 
