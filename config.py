@@ -284,11 +284,18 @@ DOWNLOAD_WORKERS = _env_int("FLOOD_DOWNLOAD_WORKERS", 6)
 DOWNLOAD_RETRIES = _env_int("FLOOD_DOWNLOAD_RETRIES", 4)
 
 # Step 02/03 CPU workers. Each worker holds one boundary mask covering the FULL
-# raster grid -- one bool per pixel, so ~0.9 GB for the 43200x21600 Aqueduct
-# grid -- plus the tile buffers. Budget roughly 1.5 GB per worker and size this
-# to the machine:
-#   16 GB RAM -> 2      32 GB RAM -> 4      64 GB RAM -> 8
-# The default is 1 because the mask, not the tiles, dominates memory here.
+# raster grid -- one bool per pixel, ~0.93 GB for the 43200x21600 Aqueduct grid
+# -- plus its tile buffers and GDAL's block cache.
+#
+# MIND GDAL_CACHEMAX: it is PER PROCESS, not per run. GDAL_CACHEMAX=2048 with
+# 8 workers is up to 16 GB of block cache on its own, and on a 31 GB box that
+# plus the masks invoked the OOM killer, which surfaces as
+# "BrokenProcessPool: A process in the process pool was terminated abruptly".
+#
+# Budget per worker: ~0.93 GB mask + GDAL_CACHEMAX + ~0.2 GB tiles.
+#   31 GB RAM -> 6 workers with GDAL_CACHEMAX=512   (~10 GB)
+#   31 GB RAM -> 4 workers with GDAL_CACHEMAX=1024  (~9 GB)
+# Raising workers without lowering GDAL_CACHEMAX is how that run died.
 PROCESS_WORKERS = _env_int("FLOOD_PROCESS_WORKERS", 1)
 
 # Tile size for the tiled read/write loop.

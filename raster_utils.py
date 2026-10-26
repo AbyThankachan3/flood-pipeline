@@ -82,6 +82,11 @@ def build_mask(src, gdf):
     if not shapes:
         raise ValueError("Boundary shapefile contains no usable geometry.")
 
+    # .astype(bool) would allocate a SECOND full-grid array before freeing the
+    # first -- for the 43200x21600 Aqueduct grid that is 0.93 GB each, so 1.9 GB
+    # transient per worker, and every worker rasterizes at startup. .view(bool)
+    # reinterprets the same buffer instead: uint8 and bool are both one byte, so
+    # it copies nothing, and rasterize's 0/1 fill maps straight to False/True.
     mask = features.rasterize(
         shapes=shapes,
         out_shape=(src.height, src.width),
@@ -89,7 +94,7 @@ def build_mask(src, gdf):
         fill=0,
         dtype="uint8",
         all_touched=False,
-    ).astype(bool)
+    ).view(bool)
 
     _MASK_CACHE.clear()          # only ever keep one; it is large
     _MASK_CACHE[key] = (gdf, mask)
