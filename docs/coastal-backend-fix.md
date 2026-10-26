@@ -232,15 +232,35 @@ segment and the `.tiff` extension.
 ```
 flood/<iso>/<hazard>/<scenario>/<year>/<rp>/cog.tiff
 
-e.g. flood/gb/coastal/ssp245/2030/rp0100/cog.tiff
+e.g. flood/gb/coastal/rcp45/2030/rp0100/cog.tiff
 ```
 
 Country second, mirroring `wind/<iso>/<ssp>/<year>/cog.tiff`, so segment 2 is
 the ISO code for every hazard and nothing generic has to special-case. The
-return period keeps its `rp0100` form, and the scenario is staged as
-`ssp245`/`ssp585` to match wind and the frontend (`KEEP_RCP=1` stages the
-accurate CMIP5 `rcp45`/`rcp85` instead, in which case the backend must ask for
-those).
+return period keeps its `rp0100` form.
+
+**Scenario is `rcp45`/`rcp85`** — unchanged from the pipeline's own filenames,
+and unchanged from what flood has always used: the legacy
+`innunriver_ensemble.py` wrote `inunriver_rcp4p5_aggregated_...` and
+`innuncoast_download_data.py` had `SCENARIOS = ["rcp4p5", "rcp8p5"]`. The
+rasters are CMIP5, so RCP is also the accurate name. Staging translates
+nothing. (`USE_SSP=1` stages `ssp245`/`ssp585` if that is ever wanted.)
+
+Wind differs legitimately: it is CMIP6 and keys on `ssp245`/`ssp585`. The two
+are different scenario families that share a forcing level, so flood does not
+inherit wind's token.
+
+**This makes an alias necessary in the backend.** The frontend sends `ssp245`
+for flood (the UI label), but the key says `rcp45`, so the resolver must map
+one to the other when building the object key:
+
+```yaml
+aliases:
+  scenario: { ssp245: rcp45, ssp585: rcp85 }
+```
+
+One explicit mapping in one place, rather than a silent rename at staging time
+that would make the stored data claim to be CMIP6.
 
 `stage_for_r2.sh` in the repo root produces that tree. It only **copies into a
 local staging folder** — it does not upload; someone else syncs the tree to R2
@@ -452,9 +472,10 @@ The UI says `SSP2-4.5` / `SSP5-8.5`. Aqueduct Floods v2 is **CMIP5**, so the
 data is `rcp4p5` / `rcp8p5`. Same radiative forcing (4.5 and 8.5 W/m²), different
 scenario families. The wind layers genuinely are SSP (CMIP6); flood is not.
 
-Either relabel the flood panel to RCP, or keep SSP for cross-hazard consistency
-and say so in the `What is this?` tooltip. The `aliases` map in §3.4 means the
-storage layer does not care either way.
+**Decided (2026-10-26): storage keeps RCP**, matching both the data and every
+previous flood pipeline. The UI label is a separate question and is unchanged
+for now; §3.4's `aliases` map bridges the two. If the panel is ever relabelled
+to RCP, the alias can go.
 
 ---
 

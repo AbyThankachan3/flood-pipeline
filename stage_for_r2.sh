@@ -11,7 +11,7 @@
 #     <DEST>/<iso>/<hazard>/<scenario>/<year>/<rp>/cog.tiff
 #
 #  e.g.  FloodData/UK/results/cog/coastal_rcp45_2030_rp0100.tif
-#     -> r2_upload/flood/gb/coastal/ssp245/2030/rp0100/cog.tiff
+#     -> r2_upload/flood/gb/coastal/rcp45/2030/rp0100/cog.tiff
 #
 #  Country second, mirroring wind's wind/<iso>/<ssp>/<year>/cog.tiff, so the
 #  second segment is the ISO code for every hazard.
@@ -62,23 +62,32 @@ declare -A CODE=(
   [Singapore]=sg
 )
 
-# Scenario token in the KEY. The rasters are CMIP5, so the pipeline writes
-# rcp45/rcp85, but the UI and the wind keys use the CMIP6 SSP names for the
-# equivalent forcing levels. Staging translates so flood keys match wind and
-# whatever the frontend sends. Set KEEP_RCP=1 to stage the accurate CMIP5
-# names instead -- the backend must then be told to ask for those.
+# Scenario token in the KEY.
+#
+# Default is RCP, unchanged from the pipeline's own filenames, because that is
+# what flood has always used: the legacy innunriver_ensemble.py wrote
+# inunriver_rcp4p5_aggregated_..., and innuncoast_download_data.py had
+# SCENARIOS = ["rcp4p5", "rcp8p5"]. The rasters are CMIP5, so RCP is also the
+# accurate name. Staging therefore translates nothing.
+#
+# Wind is genuinely CMIP6 and keys on ssp245/ssp585; flood does not, and the
+# two are different scenario families that happen to share a forcing level. If
+# the frontend sends ssp245 for flood, the backend aliases it to rcp45 when
+# building the key -- one explicit mapping, rather than a silent rename here.
+#
+# USE_SSP=1 stages ssp245/ssp585 instead, if that is ever wanted.
 declare -A SCENARIO=(
-  [rcp45]=ssp245
-  [rcp85]=ssp585
+  [rcp45]=rcp45
+  [rcp85]=rcp85
 )
-if [ "${KEEP_RCP:-0}" = "1" ]; then
-  SCENARIO=( [rcp45]=rcp45 [rcp85]=rcp85 )
+if [ "${USE_SSP:-0}" = "1" ]; then
+  SCENARIO=( [rcp45]=ssp245 [rcp85]=ssp585 )
 fi
 
 echo "Source : $SRC"
 echo "Dest   : $DEST"
 echo "Mode   : $([ "$DRY_RUN" = 1 ] && echo 'DRY RUN (nothing written)' || { [ "$LINK" = 1 ] && echo 'hardlink (no extra disk used)' || echo 'copy'; })"
-echo "Scenario naming: $([ "${KEEP_RCP:-0}" = 1 ] && echo 'rcp45/rcp85 (CMIP5, accurate)' || echo 'ssp245/ssp585 (matches wind + UI)')"
+echo "Scenario naming: $([ "${USE_SSP:-0}" = 1 ] && echo 'ssp245/ssp585' || echo 'rcp45/rcp85 (CMIP5, as the pipeline writes them)')"
 echo
 
 if [ ! -d "$SRC" ]; then
