@@ -74,28 +74,47 @@ public class CoastalFloodAttributes {
 }
 ```
 
-Replace with fields that describe what coastal actually is: a depth for the
-selected case, the uncertainty range across SLR percentiles, and spatial
-statistics over the sampled radius.
+Replace with fields that match the agreed panel design: the three spatial
+statistics the card shows, the sea-level-rise range, and the case they describe.
 
 ```java
 public class CoastalFloodAttributes {
-    // The case the caller selected
+    // Which of the six bands these numbers came from
     private String subsidence;        // "nosub" | "wtsub"
     private String slrPercentile;     // "p05" | "p50" | "p95"
 
-    // Depth for that case, within the radius
-    private BigDecimal depth;         // representative (median over pixels)
-    private BigDecimal meanDepth;     // spatial mean over the radius
-    private BigDecimal maxDepth;      // spatial max over the radius
-    private BigDecimal floodedFraction;   // 0..1, pixels with depth > 0
+    // Spatial statistics over the selected band, within the radius
+    private BigDecimal medianDepth;
+    private BigDecimal meanDepth;
+    private BigDecimal maxDepth;
 
-    // Sea-level-rise uncertainty at the same subsidence setting
+    // Sea-level-rise range at the SAME subsidence setting.
+    // All three are populated: six bands is the pipeline default and all
+    // twelve countries were built with it.
     private BigDecimal depthP05;
     private BigDecimal depthP50;
-    private BigDecimal depthP95;      // null until the 95th layer is published
+    private BigDecimal depthP95;
+
+    // Only needed if a four-band (legacy-parity) build is ever served, where
+    // depthP95 is absent and the fourth tile shows this instead.
+    private BigDecimal floodedFraction;   // 0..1, pixels with depth > 0
 }
 ```
+
+How those map onto the card (see `design/coastal-panel-proposed.html`):
+
+| Card slot | Field |
+|---|---|
+| Pill, top right | `slrPercentile` — e.g. "50th pct" |
+| Top left tile | `medianDepth` |
+| Top right tile | `meanDepth` |
+| Bottom left tile | `maxDepth` |
+| Bottom right tile | `depthP05`–`depthP95` as a range |
+
+The first three are deliberately the same three riverine shows. Only the
+fourth slot differs, and in both cards it carries that hazard's own
+uncertainty measure — standard deviation across models for riverine, the
+sea-level-rise range for coastal.
 
 `stdDev` is removed deliberately. Do not keep it "for compatibility" — a field
 that cannot be computed correctly will be populated with something wrong.
@@ -107,7 +126,7 @@ that cannot be computed correctly will be populated with something wrong.
 Current fields: `year`, `scenario`, `returnPeriod`, `coastalFloodAttributes`.
 
 Add `subsidence` and `slrPercentile`, otherwise a report row cannot say which
-of the four (or six) cases it describes.
+of the six cases it describes.
 
 ---
 
