@@ -3,8 +3,19 @@
 **Status:** the coastal summary-analytics panel reports the wrong numbers in
 production today. Riverine is correct and needs only one addition.
 
-This document lists the changes repo by repo. It was written against
-`develop` on each repo as of 2026-10-18.
+This document lists the changes repo by repo. It was written against `develop`
+on each repo as of 2026-10-18 and last revised 2026-10-26.
+
+**Settled so far:** six coastal bands (§3.0) · card structure matching riverine
+(§5.2) · R2 key layout and RCP scenario token (§3.4, §6) · EU layer left
+unfiltered (§3.4) · 12 countries.
+
+**Still open:** where the flood-defences caveat lives (§5.2.1) · whether the UI
+keeps its SSP labels (§6).
+
+**Pipeline status:** all 12 countries processed, 1,296 COGs, ~8.5 GB. These
+carry band descriptions and unit tags, which the legacy COGs do not — §3.5's
+assertion depends on that.
 
 ---
 
@@ -466,7 +477,7 @@ they are load-bearing, not decoration.
 
 ---
 
-## 6. Open decision: scenario naming
+## 6. Settled: scenario naming
 
 The UI says `SSP2-4.5` / `SSP5-8.5`. Aqueduct Floods v2 is **CMIP5**, so the
 data is `rcp4p5` / `rcp8p5`. Same radiative forcing (4.5 and 8.5 W/m²), different
