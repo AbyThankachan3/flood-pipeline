@@ -8,13 +8,19 @@
 #  Reorganises:
 #     <SRC>/<Country>/results/cog/<hazard>_<scenario>_<year>_<rp>.tif
 #  into:
-#     <DEST>/<iso>/<hazard>/<scenario>/<year>/<rp>/cog.tiff
+#     <DEST>/<iso>/<hazard>/<year>/<scenario>/<rp>/cog.tif
 #
 #  e.g.  FloodData/UK/results/cog/coastal_rcp45_2030_rp0100.tif
-#     -> r2_upload/flood/gb/coastal/rcp45/2030/rp0100/cog.tiff
+#     -> r2_upload/flood/gb/coastal/2030/rcp45/rp0100/cog.tif
 #
-#  Country second, mirroring wind's wind/<iso>/<ssp>/<year>/cog.tiff, so the
-#  second segment is the ISO code for every hazard.
+#  This layout is NOT a choice made here -- it is read off bluebird's
+#  RegionalHazardProjectionService.buildFloodPath, which as of 2026-11-08 is:
+#     "flood/" + country + "/" + type + "/" + year + "/" + scenario
+#              + "/" + returnPeriod + "/cog.tif"
+#  Note year BEFORE scenario (wind is the other way round: wind/<iso>/<ssp>/
+#  <year>/cog.tif) and the single-f .tif. Both differ from an earlier draft of
+#  this script; if buildFloodPath changes, change this line to match, not the
+#  other way round.
 #
 #  Files are HARDLINKED by default, so the staged tree costs no extra disk
 #  (set LINK=0 for real copies). Originals are untouched either way. Then
@@ -142,7 +148,7 @@ for dir in "$SRC"/*/; do
       continue
     fi
 
-    out="$DEST/$code/$hazard/$key_scen/$year/$rp/cog.tiff"
+    out="$DEST/$code/$hazard/$year/$key_scen/$rp/cog.tif"
     if [ -e "$out" ]; then
       echo "  [COLLISION] $out already staged -- two sources map to one key"
       collisions=$((collisions + 1))

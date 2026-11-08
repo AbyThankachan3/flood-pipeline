@@ -211,75 +211,38 @@ used.
 
 ### 3.4 `services/RegionalHazardProjectionService.java` — decouple the R2 layout
 
-Today the object key is computed in Java, so every R2 reorganisation is a code
-change and a release.
-
-**The real R2 layout carries an ISO country code.** Wind's `stage_for_r2.sh`
-copies per-country output into:
-
-```
-wind/<iso>/<ssp>/<year>/cog.tiff        e.g. wind/gb/ssp245/2030/cog.tiff
-```
-
-That is the corrected, intended convention. Note `.tiff`, and note the `<iso>`
-segment: `EU → eu`, `UK → gb`, `USA → us`, and so on.
-
-The path builders on `develop` predate it and are **stale**:
+**Re-verified against `develop` on 2026-11-08.** The ISO country segment has
+since been added to bluebird, so the key is now:
 
 ```java
-private String buildFloodPath(type, year, scenario, returnPeriod) {
-    return "flood/" + type + "/" + year + "/" + scenario + "/" + returnPeriod + "/cog.tif";
-}
-private String buildWindPath(year, scenario) {
-    return "wind/" + scenario + "/" + year + "/cog.tif";   // no <iso>, .tif not .tiff
-}
+// RegionalHazardProjectionService.buildFloodPath
+"flood/" + country + "/" + type + "/" + year + "/" + scenario
+         + "/" + returnPeriod + "/cog.tif"
+
+e.g. flood/gb/coastal/2030/rcp45/rp0100/cog.tif
 ```
 
-So `buildFloodPath` needs the same treatment wind's key already had: an `<iso>`
-segment and the `.tiff` extension.
+`getHazardProjectionUrl` now takes `countryCode` first, and
+`toObjectKeyCountryCode()` accepts alpha-2 or alpha-3 and lower-cases it, so
+`GB`, `GBR` and `gb` all resolve to `gb`.
 
-**Settled (2026-10-25).** The flood key is:
+Two details that are easy to get wrong, both verified against the source:
 
-```
-flood/<iso>/<hazard>/<scenario>/<year>/<rp>/cog.tiff
+- **Year comes BEFORE scenario** for flood. Wind is the other way round
+  (`wind/<iso>/<scenario>/<year>/cog.tif`). The two hazards genuinely differ;
+  do not "fix" one to match the other.
+- **`cog.tif`, single f.** Note wind's `stage_for_r2.sh` writes `cog.tiff`
+  while `buildWindPath` asks for `cog.tif` — worth checking whether wind
+  layers actually resolve in production, because on `develop` those two do not
+  agree.
 
-e.g. flood/gb/coastal/rcp45/2030/rp0100/cog.tiff
-```
+`stage_for_r2.sh` in this repo writes exactly the flood format above. It is
+read off `buildFloodPath`, not chosen here: if that method changes, change the
+script to match.
 
-Country second, mirroring `wind/<iso>/<ssp>/<year>/cog.tiff`, so segment 2 is
-the ISO code for every hazard and nothing generic has to special-case. The
-return period keeps its `rp0100` form.
-
-**Scenario is `rcp45`/`rcp85`** — unchanged from the pipeline's own filenames,
-and unchanged from what flood has always used: the legacy
-`innunriver_ensemble.py` wrote `inunriver_rcp4p5_aggregated_...` and
-`innuncoast_download_data.py` had `SCENARIOS = ["rcp4p5", "rcp8p5"]`. The
-rasters are CMIP5, so RCP is also the accurate name. Staging translates
-nothing. (`USE_SSP=1` stages `ssp245`/`ssp585` if that is ever wanted.)
-
-Wind differs legitimately: it is CMIP6 and keys on `ssp245`/`ssp585`. The two
-are different scenario families that share a forcing level, so flood does not
-inherit wind's token.
-
-**This makes an alias necessary in the backend.** The frontend sends `ssp245`
-for flood (the UI label), but the key says `rcp45`, so the resolver must map
-one to the other when building the object key:
-
-```yaml
-aliases:
-  scenario: { ssp245: rcp45, ssp585: rcp85 }
-```
-
-One explicit mapping in one place, rather than a silent rename at staging time
-that would make the stored data claim to be CMIP6.
-
-`stage_for_r2.sh` in the repo root produces that tree. It only **copies into a
-local staging folder** — it does not upload; someone else syncs the tree to R2
-unchanged.
-
-This is also the strongest argument for the resolver below: with the layout in
-config or a table, a correction like the one wind already went through is a
-config edit, not a code change in two languages.
+The object key is still computed in Java, so an R2 reorganisation remains a
+code change and a release. The resolver below would move it to config or a
+table; that is an improvement, not a prerequisite.
 
 ### Why the ISO segment matters for EU
 
