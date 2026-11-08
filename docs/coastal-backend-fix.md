@@ -13,6 +13,10 @@ unfiltered (§3.4) · 12 countries.
 **Still open:** where the flood-defences caveat lives (§5.2.1) · whether the UI
 keeps its SSP labels (§6).
 
+**Required work is §2, §3.1–3.3, §3.5–3.6 and §5.** §3.4 documents a key format
+that is already correct and needs no change. §9 and §10 are context and an
+optional refactor — neither blocks the fix.
+
 **Pipeline status:** all 12 countries processed, 1,296 COGs, ~8.5 GB. These
 carry band descriptions and unit tags, which the legacy COGs do not — §3.5's
 assertion depends on that.
@@ -209,7 +213,7 @@ those fields on `ReportCoastalFloodAttributesDto`. Either fix a documented
 default for reports, or iterate the cases — but the report must state which it
 used.
 
-### 3.4 `services/RegionalHazardProjectionService.java` — decouple the R2 layout
+### 3.4 `services/RegionalHazardProjectionService.java` — no change required
 
 **Re-verified against `develop` on 2026-11-08.** The ISO country segment has
 since been added to bluebird, so the key is now:
@@ -240,79 +244,13 @@ Two details that are easy to get wrong, both verified against the source:
 read off `buildFloodPath`, not chosen here: if that method changes, change the
 script to match.
 
-The object key is still computed in Java, so an R2 reorganisation remains a
-code change and a release. The resolver below would move it to config or a
-table; that is an improvement, not a prerequisite.
+**Nothing in this file needs to change for the coastal fix.** The key format
+is already correct; it is documented here only so the staged files and the
+backend agree.
 
-### Why the ISO segment matters for EU
-
-Because country is in the key, `eu/` and `gb/` are separate objects, so the
-fact that the NUTS 2021 level-0 boundary contains the UK (and Switzerland,
-Norway, Türkiye, Iceland, Liechtenstein, Serbia, Albania, Montenegro, North
-Macedonia — 37 features, not 27) is **not** a collision. It is redundant
-storage: UK pixels appear in both layers with identical values, and an app that
-resolves a site to an ISO code will only ever read `gb` for a British site.
-
-Wind already shipped with this, using the same two shapefiles.
-
-**Decided (2026-10-25): leave as-is.** The layer stays labelled `EU` and keeps
-all 37 NUTS features. Filtering to the EU-27 was considered and rejected — of
-the ten non-member features, only the UK has its own layer, so filtering would
-delete coverage for Switzerland, Norway, Iceland, Liechtenstein, Türkiye,
-Serbia, Albania, Montenegro and North Macedonia, which nothing else in the set
-covers.
-
-Two consequences to be aware of rather than fix:
-
-- A site in the UK is inside two layers. The site → layer mapping must be an
-  explicit table preferring the national layer (`GB → gb`), never
-  point-in-polygon against layer boundaries, which is ambiguous there.
-- Anything that sums *across* layers rather than per site would double-count
-  UK exposure. Site-wise aggregation is unaffected.
-
-Introduce a seam:
-
-```java
-public interface HazardLayerResolver {
-    HazardLayer resolve(String hazard, String type, String year,
-                        String scenario, String returnPeriod);
-}
-
-public record HazardLayer(String objectKey, Map<String, Integer> bandsByName) { }
-```
-
-Then pick an implementation:
-
-**A — config templates (recommended first step).** `application.yml`:
-
-```yaml
-hazard:
-  layers:
-    templates:
-      flood: "flood/{type}/{year}/{scenario}/{returnPeriod}/cog.tif"
-      wind:  "wind/{scenario}/{year}/cog.tif"
-    bands:
-      coastal: [depth_nosub_p05, depth_nosub_p50, depth_wtsub_p05, depth_wtsub_p50]
-      riverine: [mean_flood_depth, flood_depth_stddev, median_flood_depth,
-                 peak_flood_depth, model_count]
-    aliases:
-      scenario: { ssp245: rcp4p5, ssp585: rcp8p5 }
-```
-
-Bind with `@ConfigurationProperties("hazard.layers")`. Path change becomes a
-config change — no recompile. `@RefreshScope` removes the restart. The
-`aliases` block also absorbs the SSP/RCP naming mismatch (see §6).
-
-**B — manifest object in R2.** The uploader writes a manifest; bluebird reads
-and caches it. No backend involvement at all when paths move. Needs a
-cache-invalidation story.
-
-**C — Postgres registry.** A `hazard_layer` table under the existing
-`climate_resilience` schema (Flyway is already wired). Path change = `UPDATE`,
-transactional, supports an `active` flag for gradual cutover. Most robust, most
-work.
-
-Recommended: **A now, C later.** The interface means swapping is one new bean.
+The key is still computed in Java, so an R2 reorganisation remains a code
+change and a release. §10 sketches how to move it into config — an optional
+improvement, not part of this work.
 
 ### 3.5 `services/GDALRasterService.java` — verify, don't assume
 
@@ -479,3 +417,78 @@ the actual band count and adapt.
 - The frontend repo was not available; §5 is behavioural, not file-level.
 - `CloudflareHmacBackedClient` was not read; §3.4 assumes only that
   `getHmacSignedDownloadURL(domain, objectKey)` takes an object key.
+
+---
+
+## 9. Data note: the `EU` layer covers 37 countries, not 27
+
+The NUTS 2021 level-0 boundary includes the EU-27 **plus** the UK,
+Switzerland, Norway, Iceland, Liechtenstein, Türkiye, Serbia, Albania,
+Montenegro and North Macedonia.
+
+**Decided (2026-10-25): leave as-is.** Filtering to the EU-27 was considered
+and rejected — of those ten, only the UK has its own layer, so filtering would
+delete coverage for the other nine, which nothing else in the set provides.
+Wind already shipped the same way, with the same two shapefiles.
+
+Because the ISO code is in the object key, `eu/` and `gb/` are separate
+objects, so this is not a collision — UK pixels simply appear in both layers
+with identical values. Two consequences for consumers:
+
+- **A UK site is inside two layers.** The site → layer mapping must be an
+  explicit table preferring the national layer (`GB → gb`). Never
+  point-in-polygon against layer boundaries: that is genuinely ambiguous for
+  the UK and the answer would depend on iteration order.
+- **Do not sum across layers.** Anything aggregating layer-wise rather than
+  site-wise double-counts UK exposure. Site-wise aggregation is unaffected.
+
+---
+
+## 10. Optional: move the object key out of Java
+
+Not required for the coastal fix. Worth doing at some point, because the key
+format has now changed twice, and each time it meant a code change in two
+languages that had to agree.
+
+```java
+public interface HazardLayerResolver {
+    HazardLayer resolve(String countryCode, String hazard, String type,
+                        String year, String scenario, String returnPeriod);
+}
+
+public record HazardLayer(String objectKey, Map<String, Integer> bandsByName) { }
+```
+
+`bandsByName` is the part that matters beyond paths: it lets
+`CoastalFloodService` ask for `depth_wtsub_p50` by name instead of assuming
+band 4, which is what made the current defect possible.
+
+**A — config templates.** Smallest change; a path edit stops being a recompile.
+
+```yaml
+hazard:
+  layers:
+    templates:
+      flood: "flood/{country}/{type}/{year}/{scenario}/{returnPeriod}/cog.tif"
+      wind:  "wind/{country}/{scenario}/{year}/cog.tif"
+    bands:
+      coastal: [depth_nosub_p05, depth_nosub_p50, depth_nosub_p95,
+                depth_wtsub_p05, depth_wtsub_p50, depth_wtsub_p95]
+      riverine: [mean_flood_depth, flood_depth_stddev, median_flood_depth,
+                 peak_flood_depth, model_count]
+    aliases:
+      scenario: { ssp245: rcp45, ssp585: rcp85 }
+```
+
+Bind with `@ConfigurationProperties("hazard.layers")`; `@RefreshScope` removes
+even the restart. Note flood puts `{year}` before `{scenario}` and wind the
+other way round — that is real, not a typo.
+
+**B — manifest in R2.** The uploader writes it, bluebird caches it. Paths move
+with no backend involvement at all; needs a cache-invalidation story.
+
+**C — Postgres registry.** A `hazard_layer` table in the existing
+`climate_resilience` schema. Path change becomes an `UPDATE`, transactional,
+with an `active` flag for gradual cutover. Most robust, most work.
+
+A now, C later if it earns it. The interface means swapping is one new bean.
