@@ -11,7 +11,7 @@
 #     <DEST>/<iso>/<hazard>/<year>/<scenario>/<rp>/cog.tif
 #
 #  e.g.  FloodData/UK/results/cog/coastal_rcp45_2030_rp0100.tif
-#     -> r2_upload/flood/gb/coastal/2030/rcp45/rp0100/cog.tif
+#     -> r2_upload/flood/gb/coastal/2030/rcp4p5/rp0100/cog.tif
 #
 #  This layout is NOT a choice made here -- it is read off bluebird's
 #  RegionalHazardProjectionService.buildFloodPath, which as of 2026-11-08 is:
@@ -68,32 +68,37 @@ declare -A CODE=(
   [Singapore]=sg
 )
 
-# Scenario token in the KEY.
+# Scenario token in the KEY: the RAW Aqueduct form, rcp4p5 / rcp8p5.
 #
-# Default is RCP, unchanged from the pipeline's own filenames, because that is
-# what flood has always used: the legacy innunriver_ensemble.py wrote
-# inunriver_rcp4p5_aggregated_..., and innuncoast_download_data.py had
-# SCENARIOS = ["rcp4p5", "rcp8p5"]. The rasters are CMIP5, so RCP is also the
-# accurate name. Staging therefore translates nothing.
+# This is NOT a style choice. bluebird's RegionalHazardProjectionService
+# .buildFloodPath (re-read on develop, 2026-11-22) only lowercases what the
+# caller passed -- it aliases nothing:
 #
-# Wind is genuinely CMIP6 and keys on ssp245/ssp585; flood does not, and the
-# two are different scenario families that happen to share a forcing level. If
-# the frontend sends ssp245 for flood, the backend aliases it to rcp45 when
-# building the key -- one explicit mapping, rather than a silent rename here.
+#     return "flood" + "/" + country + "/" + type.toLowerCase(ROOT) + "/"
+#          + year.toLowerCase(ROOT) + "/" + scenario.toLowerCase(ROOT) + "/"
+#          + returnPeriod.toLowerCase(ROOT) + "/cog.tif";
 #
-# USE_SSP=1 stages ssp245/ssp585 instead, if that is ever wanted.
+# and the frontend sends scenario=rcp4p5. So the key segment is rcp4p5, and
+# staging must DENORMALISE: the pipeline's own filenames carry the canonical
+# rcp45 (naming.normalize_scenario), the object key carries rcp4p5.
+#
+# An earlier version of this script staged rcp45 here, assuming the backend
+# aliased rcp4p5 -> rcp45 when building the key. It does not. That mismatch
+# leaves every file one segment away from where the backend looks, and the
+# symptom is a 500 off whatever stale object still sits at the real key, not a
+# clean 404 -- so if coastal starts erroring again, re-read buildFloodPath
+# rather than trusting this comment.
+#
+# Country needs no help here: toObjectKeyCountryCode maps USA -> us itself.
 declare -A SCENARIO=(
-  [rcp45]=rcp45
-  [rcp85]=rcp85
+  [rcp45]=rcp4p5
+  [rcp85]=rcp8p5
 )
-if [ "${USE_SSP:-0}" = "1" ]; then
-  SCENARIO=( [rcp45]=ssp245 [rcp85]=ssp585 )
-fi
 
 echo "Source : $SRC"
 echo "Dest   : $DEST"
 echo "Mode   : $([ "$DRY_RUN" = 1 ] && echo 'DRY RUN (nothing written)' || { [ "$LINK" = 1 ] && echo 'hardlink (no extra disk used)' || echo 'copy'; })"
-echo "Scenario naming: $([ "${USE_SSP:-0}" = 1 ] && echo 'ssp245/ssp585' || echo 'rcp45/rcp85 (CMIP5, as the pipeline writes them)')"
+echo "Scenario in key: rcp4p5/rcp8p5 (raw Aqueduct form, as buildFloodPath expects)"
 echo
 
 if [ ! -d "$SRC" ]; then

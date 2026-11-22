@@ -223,7 +223,7 @@ since been added to bluebird, so the key is now:
 "flood/" + country + "/" + type + "/" + year + "/" + scenario
          + "/" + returnPeriod + "/cog.tif"
 
-e.g. flood/gb/coastal/2030/rcp45/rp0100/cog.tif
+e.g. flood/gb/coastal/2030/rcp4p5/rp0100/cog.tif
 ```
 
 `getHazardProjectionUrl` now takes `countryCode` first, and
@@ -386,8 +386,36 @@ scenario families. The wind layers genuinely are SSP (CMIP6); flood is not.
 
 **Decided (2026-10-26): storage keeps RCP**, matching both the data and every
 previous flood pipeline. The UI label is a separate question and is unchanged
-for now; §3.4's `aliases` map bridges the two. If the panel is ever relabelled
-to RCP, the alias can go.
+for now.
+
+**Corrected 2026-11-22 — the object key uses the RAW form `rcp4p5` / `rcp8p5`,
+not the canonical `rcp45` / `rcp85`.** An earlier revision of this section said
+the backend aliased `rcp4p5 -> rcp45` when building the key. It does not.
+`buildFloodPath` lower-cases each segment and nothing else:
+
+```java
+return "flood" + "/" + country + "/" + type.toLowerCase(ROOT) + "/"
+     + year.toLowerCase(ROOT) + "/" + scenario.toLowerCase(ROOT) + "/"
+     + returnPeriod.toLowerCase(ROOT) + "/cog.tif";
+```
+
+The frontend sends `scenario=rcp4p5`, so that string lands in the key verbatim.
+`stage_for_r2.sh` therefore denormalises on the way out: the pipeline's own
+filenames keep the canonical `rcp45` (`naming.normalize_scenario`), the object
+key carries `rcp4p5`. This applies to **riverine and coastal alike** — the
+staging map is applied after the hazard check, so both hazards are keyed the
+same way.
+
+Worth knowing how this failure presents, because it is not a 404. Legacy
+objects already occupy the real `rcp4p5` keys, so a request succeeds in finding
+*a* file and fails later on its contents — the observed symptom was a 500 with
+`VALIDATION_ERROR: COG band 1 of 4 has no description`. Riverine showed no
+error at all under the same mismatch, because it reads bands positionally and a
+legacy 5-band riverine COG still parses; it was simply serving stale data
+silently. If either hazard looks wrong again, re-read `buildFloodPath` before
+trusting this document.
+
+Country needs no such care: `toObjectKeyCountryCode` maps `USA` -> `us` itself.
 
 ---
 
@@ -477,8 +505,12 @@ hazard:
       riverine: [mean_flood_depth, flood_depth_stddev, median_flood_depth,
                  peak_flood_depth, model_count]
     aliases:
-      scenario: { ssp245: rcp45, ssp585: rcp85 }
+      scenario: { ssp245: rcp4p5, ssp585: rcp8p5 }
 ```
+
+Note the alias targets are the **raw** `rcp4p5` / `rcp8p5`, matching the object
+keys — see the 2026-11-22 correction in §6. This resolver does not exist today;
+`buildFloodPath` passes the scenario straight through, lower-cased.
 
 Bind with `@ConfigurationProperties("hazard.layers")`; `@RefreshScope` removes
 even the restart. Note flood puts `{year}` before `{scenario}` and wind the
